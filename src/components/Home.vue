@@ -73,6 +73,10 @@
 import { collection, getDocs, query, where } from "firebase/firestore";
 import { db } from "@/firebase";
 import { parseISO } from "date-fns";
+// En src/router/index.js
+import Home from '@/components/Home.vue'; // Cambia esta línea
+// en lugar de:
+// import Home from '@/views/Home.vue';
 
 export default {
   name: "Home",
