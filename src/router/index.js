@@ -39,6 +39,12 @@ const routes = [
     name: 'Atrasados',
     component: () => import('@/components/Atrasados.vue'),
     meta: { requiresAuth: true }
+  },
+  {
+    path: '/movimientos',
+    name: 'Movimientos',
+    component: () => import('@/components/Movimientos.vue'),
+    meta: { requiresAuth: true }
   }
 ];
 

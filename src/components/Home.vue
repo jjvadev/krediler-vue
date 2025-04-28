@@ -4,10 +4,12 @@
     <p class="lead text-secondary mb-4">
       Administra clientes, préstamos, rutas y verifica los atrasos de manera eficiente.
     </p>
-    <div class="row justify-content-center g-4">
+    
+    <!-- Tarjetas de Resumen -->
+    <div class="row justify-content-center g-4 mb-5">
       <!-- Tarjeta para Clientes -->
       <div class="col-12 col-md-6 col-lg-3">
-        <div class="card shadow-lg border-0">
+        <div class="card shadow-lg border-0 h-100">
           <div class="card-body text-center">
             <div class="icon-container bg-primary text-white rounded-circle mb-3">
               <i class="fas fa-users fa-2x"></i>
@@ -20,9 +22,10 @@
           </div>
         </div>
       </div>
+      
       <!-- Tarjeta para Préstamos Activos -->
       <div class="col-12 col-md-6 col-lg-3">
-        <div class="card shadow-lg border-0">
+        <div class="card shadow-lg border-0 h-100">
           <div class="card-body text-center">
             <div class="icon-container bg-success text-white rounded-circle mb-3">
               <i class="fas fa-hand-holding-usd fa-2x"></i>
@@ -35,9 +38,10 @@
           </div>
         </div>
       </div>
+      
       <!-- Tarjeta para Rutas -->
       <div class="col-12 col-md-6 col-lg-3">
-        <div class="card shadow-lg border-0">
+        <div class="card shadow-lg border-0 h-100">
           <div class="card-body text-center">
             <div class="icon-container bg-info text-white rounded-circle mb-3">
               <i class="fas fa-map-marked-alt fa-2x"></i>
@@ -50,9 +54,10 @@
           </div>
         </div>
       </div>
+      
       <!-- Tarjeta para Préstamos Atrasados -->
       <div class="col-12 col-md-6 col-lg-3">
-        <div class="card shadow-lg border-0">
+        <div class="card shadow-lg border-0 h-100">
           <div class="card-body text-center">
             <div class="icon-container bg-danger text-white rounded-circle mb-3">
               <i class="fas fa-exclamation-triangle fa-2x"></i>
@@ -66,17 +71,71 @@
         </div>
       </div>
     </div>
+    
+    <!-- Sección de Movimientos Recientes -->
+    <div class="row mt-4">
+      <div class="col-12">
+        <div class="card shadow-lg">
+          <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Últimos Movimientos</h5>
+            <button class="btn btn-light btn-sm" @click="fetchMovimientos">
+              <i class="fas fa-sync-alt"></i> Actualizar
+            </button>
+          </div>
+          <div class="card-body p-0">
+            <div class="table-responsive">
+              <table class="table table-hover mb-0">
+                <thead class="table-light">
+                  <tr>
+                    <th>Fecha</th>
+                    <th>Cliente</th>
+                    <th>Tipo</th>
+                    <th class="text-end">Monto</th>
+                    <th>Método</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="movimiento in movimientos" :key="movimiento.id">
+                    <td>{{ movimiento.Fecha }}</td>
+                    <td>{{ movimiento.NombreCliente }}</td>
+                    <td>
+                      <span class="badge" :class="{
+                        'bg-success': movimiento.TipoMovimiento === 'Abono',
+                        'bg-warning text-dark': movimiento.TipoMovimiento !== 'Abono'
+                      }">
+                        {{ movimiento.TipoMovimiento }}
+                      </span>
+                    </td>
+                    <td class="text-end fw-bold">{{ formatCurrency(movimiento.Monto) }}</td>
+                    <td>{{ movimiento.MetodoPago }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div v-if="loadingMovimientos" class="text-center my-3">
+              <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Cargando...</span>
+              </div>
+            </div>
+            <div v-if="movimientos.length === 0 && !loadingMovimientos" class="alert alert-info text-center m-3">
+              No hay movimientos recientes
+            </div>
+            <div class="text-center p-3 border-top">
+              <router-link to="/movimientos" class="btn btn-outline-primary">
+                Ver todos los movimientos
+              </router-link>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script>
-import { collection, getDocs, query, where } from "firebase/firestore";
+import { collection, getDocs, query, where, orderBy, limit } from "firebase/firestore";
 import { db } from "@/firebase";
 import { parseISO } from "date-fns";
-// En src/router/index.js
-import Home from '@/components/Home.vue'; // Cambia esta línea
-// en lugar de:
-// import Home from '@/views/Home.vue';
 
 export default {
   name: "Home",
@@ -86,6 +145,8 @@ export default {
       prestamosActivos: 0,
       totalRutas: 0,
       prestamosAtrasados: 0,
+      movimientos: [],
+      loadingMovimientos: false
     };
   },
   async created() {
@@ -93,6 +154,7 @@ export default {
     await this.fetchPrestamosActivos();
     await this.fetchTotalRutas();
     await this.fetchPrestamosAtrasados();
+    await this.fetchMovimientos();
   },
   methods: {
     async fetchTotalClientes() {
@@ -122,12 +184,40 @@ export default {
         return fechaActual > proximoPago;
       }).length;
     },
-  },
+    async fetchMovimientos() {
+      try {
+        this.loadingMovimientos = true;
+        this.movimientos = [];
+        
+        const movimientosQuery = query(
+          collection(db, "Movimientos"),
+          orderBy("Timestamp", "desc"),
+          limit(5)
+        );
+        
+        const querySnapshot = await getDocs(movimientosQuery);
+        this.movimientos = querySnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+      } catch (error) {
+        console.error("Error al cargar movimientos:", error);
+      } finally {
+        this.loadingMovimientos = false;
+      }
+    },
+    formatCurrency(value) {
+      return new Intl.NumberFormat('es-CO', {
+        style: 'currency',
+        currency: 'COP',
+        minimumFractionDigits: 0
+      }).format(value);
+    }
+  }
 };
 </script>
 
 <style scoped>
-/* Estilo adicional para personalizar el diseño */
 .container {
   max-width: 1200px;
 }
@@ -161,6 +251,11 @@ p {
   font-size: 2rem;
 }
 
+.badge {
+  font-size: 0.8rem;
+  padding: 0.35em 0.65em;
+}
+
 @media (max-width: 768px) {
   h1 {
     font-size: 2rem;
@@ -176,6 +271,10 @@ p {
 
   .card-text {
     font-size: 1.5rem;
+  }
+  
+  .table-responsive {
+    font-size: 0.9rem;
   }
 }
 </style>
