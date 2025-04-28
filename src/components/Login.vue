@@ -36,7 +36,8 @@
   <script>
   import { signInWithEmailAndPassword } from "firebase/auth";
   import { auth } from "@/firebase";
-  
+  import { SpeedInsights } from "@vercel/speed-insights/vue"
+
   export default {
     name: 'LoginPage',
     data() {

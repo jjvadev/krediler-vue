@@ -3,6 +3,7 @@ import App from './App.vue';
 import Vue3GoogleMap from 'vue3-google-map'
 import router from './router';
 import 'bootstrap/dist/css/bootstrap.css';
+import "leaflet/dist/leaflet.css";
 
 const app = createApp(App);
 
