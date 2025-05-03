@@ -4,7 +4,7 @@
     <header>
       <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
         <div class="container">
-          <a class="navbar-brand" href="#">Mi Dashboard</a>
+          <a class="navbar-brand" href="/">Mi Dashboard</a>
           <button
             class="navbar-toggler"
             type="button"

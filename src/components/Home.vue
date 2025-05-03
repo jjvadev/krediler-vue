@@ -135,7 +135,7 @@
 <script>
 import { collection, getDocs, query, where, orderBy, limit } from "firebase/firestore";
 import { db } from "@/firebase";
-import { parseISO } from "date-fns";
+import { parse, isAfter } from "date-fns";
 
 export default {
   name: "Home",
@@ -174,15 +174,38 @@ export default {
       this.totalRutas = querySnapshot.size;
     },
     async fetchPrestamosAtrasados() {
-      const querySnapshot = await getDocs(collection(db, "Prestamos"));
-      const prestamos = querySnapshot.docs.map((doc) => doc.data());
-      const fechaActual = new Date();
-      this.prestamosAtrasados = prestamos.filter((prestamo) => {
-        const proximoPagoStr = prestamo.Proximo_Pago;
-        if (!proximoPagoStr) return false;
-        const proximoPago = parseISO(proximoPagoStr);
-        return fechaActual > proximoPago;
-      }).length;
+      try {
+        const querySnapshot = await getDocs(collection(db, "Prestamos"));
+        const hoy = new Date();
+        
+        // Filtrar préstamos atrasados activos
+        this.prestamosAtrasados = querySnapshot.docs
+          .map(doc => {
+            const data = doc.data();
+            let estaAtrasado = false;
+            
+            if (data.Proximo_Pago && data.Estado && data.Estado.toLowerCase() === "activo") {
+              try {
+                // Usar la misma lógica que en el componente Atrasados
+                const fechaPago = parse(data.Proximo_Pago, 'dd/MM/yyyy', new Date());
+                estaAtrasado = isAfter(hoy, fechaPago);
+              } catch (error) {
+                console.error("Error al procesar fecha:", error);
+              }
+            }
+            
+            return {
+              id: doc.id,
+              data: data,
+              estaAtrasado: estaAtrasado
+            };
+          })
+          .filter(p => p.estaAtrasado)
+          .length;
+      } catch (error) {
+        console.error("Error al cargar préstamos atrasados:", error);
+        this.prestamosAtrasados = 0;
+      }
     },
     async fetchMovimientos() {
       try {
