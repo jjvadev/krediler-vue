@@ -49,6 +49,17 @@
       }
     },
     methods: {
+      async handleLogin(){
+        try {
+          await this.$store.dispatch('auth/login', {
+            email: this.email,
+            password: this.password
+          });
+          this.$router.push('/');
+        } catch (error) {
+          this.error = error.message;
+        }
+      },
       async login() {
         this.loading = true;
         this.error = '';

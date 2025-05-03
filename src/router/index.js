@@ -1,50 +1,55 @@
 import { createRouter, createWebHistory } from 'vue-router';
-import Home from '@/components/Home.vue'; // Ajustado a la ubicación correcta
+import Home from '@/components/Home.vue';
 import Login from '@/components/Login.vue';
 import { auth } from '@/firebase';
+import store from '@/store';
 
 const routes = [
   {
     path: '/',
     name: 'Home',
     component: Home,
-    meta: { requiresAuth: true }
+    meta: { requiresAuth: true, title: 'Inicio' }
   },
   {
     path: '/login',
     name: 'Login',
     component: Login,
-    meta: { requiresAuth: false }
+    meta: { requiresAuth: false, title: 'Iniciar sesión' }
   },
   {
     path: '/clientes',
     name: 'Clientes',
     component: () => import('@/components/Clientes.vue'),
-    meta: { requiresAuth: true }
+    meta: { requiresAuth: true, title: 'Clientes' }
   },
   {
     path: '/prestamos',
     name: 'Prestamos',
     component: () => import('@/components/Prestamos.vue'),
-    meta: { requiresAuth: true }
+    meta: { requiresAuth: true, title: 'Préstamos' }
   },
   {
     path: '/rutas',
     name: 'Rutas',
     component: () => import('@/components/Rutas.vue'),
-    meta: { requiresAuth: true }
+    meta: { requiresAuth: true, title: 'Rutas' }
   },
   {
     path: '/atrasados',
     name: 'Atrasados',
     component: () => import('@/components/Atrasados.vue'),
-    meta: { requiresAuth: true }
+    meta: { requiresAuth: true, title: 'Préstamos atrasados' }
   },
   {
     path: '/movimientos',
     name: 'Movimientos',
     component: () => import('@/components/Movimientos.vue'),
-    meta: { requiresAuth: true }
+    meta: { requiresAuth: true, title: 'Movimientos' }
+  },
+  {
+    path: '/:pathMatch(.*)*',
+    redirect: '/'
   }
 ];
 
@@ -53,9 +58,15 @@ const router = createRouter({
   routes
 });
 
-router.beforeEach((to, from, next) => {
+router.beforeEach(async (to, from, next) => {
+  // Verificar autenticación con Firebase
+  await store.dispatch('auth/checkAuth');
+  
   const requiresAuth = to.matched.some(record => record.meta.requiresAuth);
-  const isAuthenticated = auth.currentUser;
+  const isAuthenticated = store.getters['auth/isAuthenticated'];
+  
+  // Actualizar título de la página
+  document.title = to.meta.title ? `${to.meta.title} | TuApp` : 'TuApp';
   
   if (requiresAuth && !isAuthenticated) {
     next('/login');
