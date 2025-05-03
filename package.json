@@ -7,6 +7,10 @@
     "build": "vue-cli-service build"
   },
   "dependencies": {
+    "@fortawesome/fontawesome-free": "^6.7.2",
+    "@fortawesome/fontawesome-svg-core": "^6.7.2",
+    "@fortawesome/free-solid-svg-icons": "^6.7.2",
+    "@fortawesome/vue-fontawesome": "^3.0.8",
     "@vercel/speed-insights": "^1.2.0",
     "@vue-leaflet/vue-leaflet": "^0.10.1",
     "axios": "^1.9.0",
@@ -15,17 +19,22 @@
     "date-fns": "^4.1.0",
     "date-fns-tz": "^3.2.0",
     "firebase": "^11.6.1",
+    "jspdf": "^2.5.1",
+    "jspdf-autotable": "^3.5.28",
     "leaflet": "^1.9.4",
-    "vue": "^3.2.13",
+    "vue": "^3.5.13",
     "vue-router": "^4.5.1",
     "vue3-google-map": "^0.21.1",
-    "vuex": "^4.0.0"
+    "vuex": "^4.1.0",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@vue/cli-plugin-babel": "~5.0.0",
     "@vue/cli-plugin-router": "~5.0.0",
     "@vue/cli-plugin-vuex": "~5.0.0",
-    "@vue/cli-service": "~5.0.0"
+    "@vue/cli-service": "~5.0.0",
+    "sass": "^1.87.0",
+    "sass-loader": "^16.0.5"
   },
   "browserslist": [
     "> 1%",
