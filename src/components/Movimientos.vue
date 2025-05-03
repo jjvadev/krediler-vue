@@ -1,326 +1,451 @@
 <template>
-  <div class="container mx-auto mt-6 px-4">
-    <!-- Título y controles -->
-    <div class="flex justify-between items-center mb-6">
-      <h1 class="text-3xl font-bold text-gray-800">Listado de Movimientos</h1>
-      <button 
-        @click="fetchMovimientos" 
-        class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
-      >
-        <i class="fas fa-sync-alt mr-2"></i> Actualizar
-      </button>
-    </div>
-
-    <!-- Filtros -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-      <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1">Buscar por cédula</label>
-        <input 
-          v-model="filters.cedula" 
-          type="text" 
-          placeholder="Ingrese cédula..."
-          class="w-full p-2 border border-gray-300 rounded-lg"
-        >
-      </div>
-      <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1">Tipo de movimiento</label>
-        <select 
-          v-model="filters.tipo" 
-          class="w-full p-2 border border-gray-300 rounded-lg"
-        >
-          <option value="">Todos</option>
-          <option value="Abono">Abono</option>
-          <option value="Desembolso">Desembolso</option>
-        </select>
-      </div>
-      <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1">Fecha</label>
-        <input 
-          v-model="filters.fecha" 
-          type="date" 
-          class="w-full p-2 border border-gray-300 rounded-lg"
-        >
-      </div>
-    </div>
-
-    <!-- Tabla y Mapa -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      <!-- Tabla de movimientos -->
-      <div class="overflow-x-auto shadow-lg rounded-lg">
-        <table class="min-w-full bg-white border border-gray-200 rounded-lg">
-          <thead class="bg-blue-600 text-white">
-            <tr>
-              <th class="px-6 py-3 text-left text-sm font-medium uppercase tracking-wider">Fecha</th>
-              <th class="px-6 py-3 text-left text-sm font-medium uppercase tracking-wider">Cliente</th>
-              <th class="px-6 py-3 text-left text-sm font-medium uppercase tracking-wider">Tipo</th>
-              <th class="px-6 py-3 text-left text-sm font-medium uppercase tracking-wider">Ubicación</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr
-              v-for="movimiento in filteredMovimientos"
-              :key="movimiento.id"
-              @click="showLocation(movimiento)"
-              class="hover:bg-blue-50 transition duration-200 cursor-pointer"
-              :class="{ 'bg-blue-100': selectedMovement?.id === movimiento.id }"
-            >
-              <td class="px-6 py-4 text-sm text-gray-700">{{ formatDate(movimiento.data.Fecha) }}</td>
-              <td class="px-6 py-4 text-sm text-gray-700">
-                <div>{{ movimiento.data.NombreCliente }}</div>
-                <div class="text-gray-500 text-xs">{{ movimiento.data.CedulaCliente }}</div>
-              </td>
-              <td class="px-6 py-4 text-sm">
-                <span 
-                  class="px-2 py-1 rounded-full text-xs"
-                  :class="{
-                    'bg-green-100 text-green-800': movimiento.data.TipoMovimiento === 'Abono',
-                    'bg-yellow-100 text-yellow-800': movimiento.data.TipoMovimiento === 'Desembolso'
-                  }"
-                >
-                  {{ movimiento.data.TipoMovimiento }}
-                </span>
-              </td>
-              <td class="px-6 py-4 text-sm text-gray-700">
-                <button
-                  v-if="movimiento.data.Ubicacion"
-                  @click.stop="showLocation(movimiento)"
-                  class="text-blue-600 hover:text-blue-800 flex items-center"
-                >
-                  <i class="fas fa-map-marker-alt mr-1"></i> Ver mapa
-                </button>
-                <span v-else class="text-gray-400">Sin ubicación</span>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-        <div v-if="loading" class="p-4 text-center">
-          <i class="fas fa-spinner fa-spin text-blue-500"></i> Cargando movimientos...
+  <div class="movimientos-container">
+    <h3>Movimientos</h3>
+    
+    <table class="movimientos-table">
+      <thead>
+        <tr>
+          <th>Fecha</th>
+          <th>Cliente</th>
+          <th>Tipo</th>
+          <th>Método</th>
+          <th>Monto</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr v-for="movimiento in movimientos" :key="movimiento.id || movimiento.PrestamoId">
+          <td>{{ formatDate(movimiento.Fecha) }}</td>
+          <td>{{ movimiento.NombreCliente || 'N/A' }}</td>
+          <td>{{ movimiento.TipoMovimiento }}</td>
+          <td>{{ movimiento.MetodoPago }}</td>
+          <td>{{ formatCurrency(movimiento.Monto) }}</td>
+          <td>
+            <button @click="verMapa(movimiento)" class="btn-mapa" :disabled="!movimiento.Ubicacion">
+              Ver Mapa
+            </button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    
+    <!-- Modal para mostrar el mapa -->
+    <div v-if="showMapModal" class="map-modal">
+      <div class="map-modal-content">
+        <span class="close" @click="closeModal">&times;</span>
+        <h3>Ubicación del Movimiento</h3>
+        <div class="coord-info" v-if="selectedLocation">
+          <p><strong>Coordenadas:</strong> {{ formatCoordinates(selectedLocation) }}</p>
+          <p v-if="selectedMovimiento"><strong>Cliente:</strong> {{ selectedMovimiento.NombreCliente || 'N/A' }}</p>
+          <p v-if="selectedMovimiento"><strong>Fecha:</strong> {{ formatDate(selectedMovimiento.Fecha) }}</p>
         </div>
-        <div v-if="!loading && filteredMovimientos.length === 0" class="p-4 text-center text-gray-500">
-          No se encontraron movimientos
-        </div>
-      </div>
-
-      <!-- Mapa -->
-      <div class="bg-white shadow-lg rounded-lg overflow-hidden">
-        <div class="p-4 bg-blue-600 text-white">
-          <h2 class="text-lg font-semibold">
-            <i class="fas fa-map-marked-alt mr-2"></i> Ubicación del Movimiento
-          </h2>
-        </div>
-        <div id="map" class="h-96 w-full"></div>
-        <div v-if="selectedMovement" class="p-4 border-t">
-          <div class="grid grid-cols-2 gap-2 text-sm">
-            <div><span class="font-medium">Cliente:</span> {{ selectedMovement.data.NombreCliente }}</div>
-            <div><span class="font-medium">Fecha:</span> {{ formatDate(selectedMovement.data.Fecha) }}</div>
-            <div><span class="font-medium">Tipo:</span> {{ selectedMovement.data.TipoMovimiento }}</div>
-            <div><span class="font-medium">Monto:</span> {{ formatCurrency(selectedMovement.data.Monto) }}</div>
-          </div>
-          <div v-if="selectedMovement.data.Ubicacion" class="mt-2 text-xs text-gray-500">
-            Coordenadas: {{ selectedMovement.data.Ubicacion[0] }}, {{ selectedMovement.data.Ubicacion[1] }}
-          </div>
-        </div>
-        <div v-else class="p-4 text-center text-gray-500">
-          Seleccione un movimiento para ver su ubicación
-        </div>
+        <div id="map" style="height: 400px; width: 100%;"></div>
       </div>
     </div>
   </div>
 </template>
 
 <script>
-import { collection, getDocs, query, orderBy } from "firebase/firestore";
-import { db } from "@/firebase";
-import L from "leaflet";
-import "leaflet/dist/leaflet.css";
-
-// Configuración de iconos para Leaflet (necesario para evitar errores)
-delete L.Icon.Default.prototype._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: require('leaflet/dist/images/marker-icon-2x.png'),
-  iconUrl: require('leaflet/dist/images/marker-icon.png'),
-  shadowUrl: require('leaflet/dist/images/marker-shadow.png')
-});
+import { ref, onMounted } from 'vue';
+import { collection, getDocs } from 'firebase/firestore';
+import { db } from '@/firebase'; // Asegúrate de tener configurado tu archivo firebase.js
 
 export default {
-  name: "Movimientos",
-  data() {
-    return {
-      movimientos: [],
-      loading: false,
-      selectedMovement: null,
-      map: null,
-      marker: null,
-      filters: {
-        cedula: "",
-        tipo: "",
-        fecha: ""
+  name: 'Movimientos',
+  setup() {
+    const movimientos = ref([]);
+    const showMapModal = ref(false);
+    const selectedLocation = ref(null);
+    const selectedMovimiento = ref(null);
+    let map = null;
+    let marker = null;
+    
+    const loadMovimientos = async () => {
+      try {
+        const movimientosCollection = collection(db, 'Movimientos');
+        const movimientosSnapshot = await getDocs(movimientosCollection);
+        const movimientosList = movimientosSnapshot.docs.map(doc => {
+          return { id: doc.id, ...doc.data() };
+        });
+        movimientos.value = movimientosList;
+        console.log("Movimientos cargados:", movimientos.value.length);
+      } catch (error) {
+        console.error('Error al cargar movimientos:', error);
       }
     };
-  },
-  computed: {
-    filteredMovimientos() {
-      return this.movimientos.filter(movimiento => {
-        // Filtro por cédula
-        if (this.filters.cedula && 
-            !movimiento.data.CedulaCliente.includes(this.filters.cedula)) {
-          return false;
-        }
-        
-        // Filtro por tipo
-        if (this.filters.tipo && 
-            movimiento.data.TipoMovimiento !== this.filters.tipo) {
-          return false;
-        }
-        
-        // Filtro por fecha
-        if (this.filters.fecha) {
-          const movimientoDate = new Date(movimiento.data.Fecha).toISOString().split('T')[0];
-          if (movimientoDate !== this.filters.fecha) {
-            return false;
-          }
-        }
-        
-        return true;
-      });
-    }
-  },
-  async mounted() {
-    await this.fetchMovimientos();
-    this.initMap();
-  },
-  methods: {
-    async fetchMovimientos() {
-      try {
-        this.loading = true;
-        const q = query(collection(db, "Movimientos"), orderBy("Timestamp", "desc"));
-        const querySnapshot = await getDocs(q);
-        
-        this.movimientos = querySnapshot.docs.map(doc => ({
-          id: doc.id,
-          data: doc.data()
-        }));
-      } catch (error) {
-        console.error("Error al cargar movimientos:", error);
-      } finally {
-        this.loading = false;
-      }
-    },
     
-    initMap() {
-      // Inicializar el mapa con vista por defecto (Medellín)
-      this.map = L.map('map').setView([6.2442, -75.5812], 12);
-      
-      // Añadir capa de OpenStreetMap
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-      }).addTo(this.map);
-    },
+    const formatDate = (dateString) => {
+      if (!dateString) return 'N/A';
+      const date = new Date(dateString);
+      return date instanceof Date && !isNaN(date) 
+        ? date.toLocaleDateString() 
+        : dateString;
+    };
     
-    showLocation(movimiento) {
-      this.selectedMovement = movimiento;
-      
-      if (!movimiento.data.Ubicacion || movimiento.data.Ubicacion.length !== 2) {
-        // Si no hay ubicación, centrar en Medellín
-        this.map.setView([6.2442, -75.5812], 12);
-        
-        // Eliminar marcador si existe
-        if (this.marker) {
-          this.map.removeLayer(this.marker);
-          this.marker = null;
-        }
-        return;
-      }
-
-      // Obtener las coordenadas
-      let latString = movimiento.data.Ubicacion[0]; // Ejemplo: "10.151798° N"
-      let lngString = movimiento.data.Ubicacion[1]; // Ejemplo: "75.3979879° W"
-
-      // Convertir a formato decimal
-      const lat = this.convertToDecimal(latString);
-      const lng = this.convertToDecimal(lngString);
-
-      // Mover el mapa a la ubicación seleccionada
-      this.map.setView([lat, lng], 15);
-
-      // Eliminar marcador anterior si existe
-      if (this.marker) {
-        this.map.removeLayer(this.marker);
-      }
-
-      // Crear nuevo marcador
-      this.marker = L.marker([lat, lng]).addTo(this.map);
-
-      // Añadir popup con información y mostrar coordenadas
-      this.marker.bindPopup(`
-        <b>${movimiento.data.NombreCliente}</b><br>
-        ${movimiento.data.TipoMovimiento} - ${this.formatCurrency(movimiento.data.Monto)}<br>
-        ${this.formatDate(movimiento.data.Fecha)}<br>
-        <strong>Coordenadas:</strong> ${lat}, ${lng}
-      `).openPopup();
-    },
-    
-    convertToDecimal(coordinate) {
-      const match = coordinate.match(/([+-]?\d+(\.\d+)?)\s*(N|S|E|W)/);
-      if (!match) {
-        return null;
-      }
-      let decimal = parseFloat(match[1]);
-      const direction = match[3];
-
-      if (direction === 'S' || direction === 'W') {
-        decimal = -decimal;
-      }
-      return decimal;
-    },
-
-    formatDate(dateString) {
-      if (!dateString) return "N/A";
-      const options = { day: '2-digit', month: '2-digit', year: 'numeric' };
-      return new Date(dateString).toLocaleDateString('es-CO', options);
-    },
-
-    formatCurrency(value) {
+    const formatCurrency = (amount) => {
       return new Intl.NumberFormat('es-CO', {
         style: 'currency',
-        currency: 'COP',
-        minimumFractionDigits: 0
-      }).format(value);
-    }
-  },
-  beforeDestroy() {
-    // Limpiar el mapa cuando el componente se destruye
-    if (this.map) {
-      this.map.remove();
-    }
+        currency: 'COP'
+      }).format(amount);
+    };
+    
+    const formatCoordinates = (location) => {
+      if (!location) return '';
+      
+      const lat = Math.abs(location.lat).toFixed(6);
+      const lng = Math.abs(location.lng).toFixed(6);
+      
+      const latDir = location.lat >= 0 ? 'N' : 'S';
+      const lngDir = location.lng >= 0 ? 'E' : 'W';
+      
+      return `${lat}° ${latDir}, ${lng}° ${lngDir}`;
+    };
+    
+    const extractCoordinates = (ubicacion) => {
+      console.log("Extrayendo coordenadas de:", ubicacion);
+      console.log("Tipo de ubicación:", typeof ubicacion);
+      
+      // Caso 1: Es un objeto con propiedades lat/lng o latitude/longitude
+      if (typeof ubicacion === 'object' && ubicacion !== null) {
+        console.log("Propiedades del objeto:", Object.keys(ubicacion));
+        
+        // Verificar si es un GeoPoint de Firestore
+        if (ubicacion.latitude !== undefined && ubicacion.longitude !== undefined) {
+          console.log("Detectado GeoPoint de Firestore");
+          return {
+            lat: ubicacion.latitude,
+            lng: ubicacion.longitude
+          };
+        }
+        
+        // Verificar si tiene propiedades lat/lng
+        if (ubicacion.lat !== undefined && ubicacion.lng !== undefined) {
+          console.log("Detectado objeto con lat/lng");
+          return {
+            lat: ubicacion.lat,
+            lng: ubicacion.lng
+          };
+        }
+        
+        // Verificar si es un objeto con _lat/_long (formato interno de Firestore)
+        if (ubicacion._lat !== undefined && ubicacion._long !== undefined) {
+          console.log("Detectado objeto con _lat/_long");
+          return {
+            lat: ubicacion._lat,
+            lng: ubicacion._long
+          };
+        }
+        
+        // Si es un objeto pero no tiene las propiedades esperadas, convertirlo a string
+        ubicacion = JSON.stringify(ubicacion);
+      }
+      
+      // Caso 2: Es una cadena de texto
+      if (typeof ubicacion === 'string') {
+        // Intentar extraer de formato "[37.4219983° N, 122.084° W]"
+        const regex = /\[(\d+\.\d+)°\s*([NS]),\s*(\d+\.\d+)°\s*([WE])\]/;
+        const match = ubicacion.match(regex);
+        
+        if (match) {
+          let lat = parseFloat(match[1]);
+          let lng = parseFloat(match[3]);
+          
+          // Ajustar según hemisferio
+          if (match[2] === 'S') lat = -lat;
+          if (match[4] === 'W') lng = -lng;
+          
+          console.log("Coordenadas extraídas de string:", lat, lng);
+          return { lat, lng };
+        }
+        
+        // Intentar extraer números directamente
+        const numbers = ubicacion.match(/\d+\.\d+/g);
+        if (numbers && numbers.length >= 2) {
+          let lat = parseFloat(numbers[0]);
+          let lng = parseFloat(numbers[1]);
+          
+          // Determinar si es negativo basado en N/S, E/W
+          if (ubicacion.includes('S')) lat = -lat;
+          if (ubicacion.includes('W')) lng = -lng;
+          
+          console.log("Números extraídos de string:", lat, lng);
+          return { lat, lng };
+        }
+      }
+      
+      // Caso 3: Es un array [lat, lng]
+      if (Array.isArray(ubicacion) && ubicacion.length >= 2) {
+        console.log("Detectado array de coordenadas");
+        return {
+          lat: ubicacion[0],
+          lng: ubicacion[1]
+        };
+      }
+      
+      // No se pudo extraer coordenadas
+      console.error("No se pudieron extraer coordenadas de:", ubicacion);
+      return null;
+    };
+    
+    const verMapa = (movimiento) => {
+      console.log("Mostrando mapa para movimiento:", movimiento.id || movimiento.PrestamoId);
+      selectedMovimiento.value = movimiento;
+      
+      if (movimiento.Ubicacion) {
+        try {
+          const coords = extractCoordinates(movimiento.Ubicacion);
+          
+          if (coords) {
+            selectedLocation.value = coords;
+            showMapModal.value = true;
+            
+            // Inicializar el mapa después de que el modal esté visible
+            setTimeout(() => {
+              initLeafletMap();
+            }, 100);
+          } else {
+            alert('No se pudieron extraer las coordenadas correctamente');
+          }
+        } catch (error) {
+          console.error('Error al procesar ubicación:', error);
+          alert('Error al procesar la ubicación: ' + error.message);
+        }
+      } else {
+        alert('No hay ubicación disponible para este movimiento');
+      }
+    };
+    
+    const loadLeafletResources = () => {
+      return new Promise((resolve, reject) => {
+        // Cargar CSS de Leaflet
+        if (!document.getElementById('leaflet-css')) {
+          const link = document.createElement('link');
+          link.id = 'leaflet-css';
+          link.rel = 'stylesheet';
+          link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+          link.integrity = 'sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=';
+          link.crossOrigin = '';
+          document.head.appendChild(link);
+        }
+        
+        // Cargar JS de Leaflet
+        if (!window.L) {
+          const script = document.createElement('script');
+          script.id = 'leaflet-js';
+          script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+          script.integrity = 'sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=';
+          script.crossOrigin = '';
+          script.onload = () => resolve();
+          script.onerror = (e) => reject(e);
+          document.head.appendChild(script);
+        } else {
+          resolve();
+        }
+      });
+    };
+    
+    const initLeafletMap = async () => {
+      if (!selectedLocation.value) return;
+      
+      try {
+        // Cargar recursos de Leaflet si no están cargados
+        await loadLeafletResources();
+        
+        // Esperar un momento para asegurarse de que Leaflet esté completamente cargado
+        setTimeout(() => {
+          const mapElement = document.getElementById('map');
+          if (mapElement && window.L) {
+            // Limpiar el contenedor del mapa si ya existe un mapa
+            mapElement.innerHTML = '';
+            
+            // Crear el mapa
+            map = L.map('map').setView([selectedLocation.value.lat, selectedLocation.value.lng], 15);
+            
+            // Añadir capa de mapa base
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+              attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(map);
+            
+            // Añadir marcador
+            marker = L.marker([selectedLocation.value.lat, selectedLocation.value.lng]).addTo(map);
+            
+            // Añadir círculo
+            L.circle([selectedLocation.value.lat, selectedLocation.value.lng], {
+              color: '#4285F4',
+              fillColor: '#4285F4',
+              fillOpacity: 0.2,
+              radius: 100
+            }).addTo(map);
+            
+            // Añadir popup con información
+            const popupContent = `
+              <div class="info-window">
+                <h4>Detalles del Movimiento</h4>
+                <p><strong>Cliente:</strong> ${selectedMovimiento.value?.NombreCliente || 'N/A'}</p>
+                <p><strong>Tipo:</strong> ${selectedMovimiento.value?.TipoMovimiento || 'N/A'}</p>
+                <p><strong>Monto:</strong> ${formatCurrency(selectedMovimiento.value?.Monto || 0)}</p>
+                <p><strong>Fecha:</strong> ${formatDate(selectedMovimiento.value?.Fecha || '')}</p>
+                <p><strong>Coordenadas:</strong> ${formatCoordinates(selectedLocation.value)}</p>
+              </div>
+            `;
+            
+            marker.bindPopup(popupContent).openPopup();
+            
+            // Añadir control de escala
+            L.control.scale().addTo(map);
+            
+            // Añadir coordenadas como un elemento HTML normal
+            const coordInfoDiv = document.createElement('div');
+            coordInfoDiv.className = 'coord-info-map';
+            coordInfoDiv.innerHTML = formatCoordinates(selectedLocation.value);
+            coordInfoDiv.style.position = 'absolute';
+            coordInfoDiv.style.bottom = '10px';
+            coordInfoDiv.style.left = '50%';
+            coordInfoDiv.style.transform = 'translateX(-50%)';
+            coordInfoDiv.style.backgroundColor = 'white';
+            coordInfoDiv.style.padding = '5px 10px';
+            coordInfoDiv.style.borderRadius = '4px';
+            coordInfoDiv.style.boxShadow = '0 1px 5px rgba(0,0,0,0.4)';
+            coordInfoDiv.style.zIndex = '1000';
+            coordInfoDiv.style.fontWeight = 'bold';
+            
+            // Añadir el div al contenedor del mapa
+            mapElement.appendChild(coordInfoDiv);
+            
+            // Actualizar el mapa después de que el modal esté completamente visible
+            setTimeout(() => {
+              map.invalidateSize();
+            }, 100);
+          } else {
+            console.error('Elemento del mapa no encontrado o Leaflet no está disponible');
+          }
+        }, 200);
+      } catch (error) {
+        console.error('Error al inicializar el mapa de Leaflet:', error);
+        alert('Error al cargar el mapa: ' + error.message);
+      }
+    };
+    
+    const closeModal = () => {
+      showMapModal.value = false;
+      selectedLocation.value = null;
+      selectedMovimiento.value = null;
+      
+      // Limpiar el mapa si existe
+      if (map) {
+        map.remove();
+        map = null;
+      }
+    };
+    
+    onMounted(() => {
+      loadMovimientos();
+    });
+    
+    return {
+      movimientos,
+      formatDate,
+      formatCurrency,
+      formatCoordinates,
+      verMapa,
+      showMapModal,
+      closeModal,
+      selectedLocation,
+      selectedMovimiento
+    };
   }
-};
+}
 </script>
 
 <style scoped>
-/* Estilos personalizados para el mapa */
+.movimientos-container {
+  padding: 20px;
+}
+
+.movimientos-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 20px;
+}
+
+.movimientos-table th, .movimientos-table td {
+  border: 1px solid #ddd;
+  padding: 8px;
+  text-align: left;
+}
+
+.movimientos-table th {
+  background-color: #f2f2f2;
+}
+
+.btn-mapa {
+  background-color: #4CAF50;
+  color: white;
+  border: none;
+  padding: 5px 10px;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.btn-mapa:disabled {
+  background-color: #cccccc;
+  cursor: not-allowed;
+}
+
+.map-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0,0,0,0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.map-modal-content {
+  background-color: white;
+  padding: 20px;
+  border-radius: 5px;
+  width: 80%;
+  max-width: 800px;
+  position: relative;
+}
+
+.close {
+  position: absolute;
+  top: 10px;
+  right: 15px;
+  font-size: 24px;
+  cursor: pointer;
+}
+
+.coord-info {
+  margin-bottom: 10px;
+  padding: 10px;
+  background-color: #f8f9fa;
+  border-radius: 4px;
+  border-left: 4px solid #4285F4;
+}
+
+/* Estilos para el popup */
+:deep(.info-window) {
+  font-family: Arial, sans-serif;
+}
+
+:deep(.info-window h4) {
+  margin-top: 0;
+  color: #4285F4;
+}
+
+:deep(.info-window p) {
+  margin: 5px 0;
+}
+
+/* Estilos para el contenedor del mapa */
 #map {
-  z-index: 0; /* Asegurar que el mapa esté detrás de otros elementos */
-}
-
-/* Estilo para las filas seleccionadas */
-.bg-blue-100 {
-  background-color: #ebf5ff;
-}
-
-/* Transición suave para hover */
-.transition {
-  transition: all 0.2s ease;
-}
-
-/* Ajustes para móviles */
-@media (max-width: 1024px) {
-  .grid-cols-2 {
-    grid-template-columns: 1fr;
-  }
-  
-  #map {
-    height: 300px;
-  }
+  position: relative;
 }
 </style>
