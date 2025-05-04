@@ -1,19 +1,33 @@
 <template>
   <div class="movimientos-container">
-    <div class="header-section">
-      <h2 class="page-title">Historial de Movimientos</h2>
-      <div class="header-actions">
-        <div class="search-box">
-          <i class="search-icon">🔍</i>
-          <input v-model="searchQuery" type="text" placeholder="Buscar movimientos..." class="search-input">
-        </div>
-        <div class="filter-dropdown">
-          <select v-model="filterType" class="filter-select">
-            <option value="">Todos los tipos</option>
-            <option value="Pago Cuota">Pago Cuota</option>
-            <option value="Abono">Abono</option>
-          </select>
-        </div>
+    <div class="header-actions">
+      <div class="search-box">
+        <i class="search-icon">🔍</i>
+        <input v-model="searchQuery" type="text" placeholder="Buscar movimientos..." class="search-input">
+      </div>
+      
+      <!-- Agrega estos nuevos controles de fecha -->
+      <div class="date-filter">
+        <label>Desde:</label>
+        <input v-model="startDate" type="date" class="date-input">
+      </div>
+      
+      <div class="date-filter">
+        <label>Hasta:</label>
+        <input v-model="endDate" type="date" class="date-input">
+      </div>
+
+      <button @click="clearFilters" class="clear-filters-btn">
+        <i class="clear-icon">🗑️</i> Limpiar filtros
+      </button>
+      
+      <div class="filter-dropdown">
+        <select v-model="filterType" class="filter-select">
+          <option value="">Todos los tipos</option>
+          <option value="Pago Cuota">Pago Cuota</option>
+          <option value="Abono">Abono</option>
+          <option value="Gasto">Gasto</option>
+        </select>
       </div>
     </div>
     
@@ -21,22 +35,22 @@
       <div class="summary-card income">
         <div class="card-icon">💰</div>
         <div class="card-content">
-          <span class="card-label">Ingresos</span>
-          <span class="card-value">{{ formatCurrency(totalIncome) }}</span>
+          <span class="card-label">Ingresos Hoy</span>
+          <span class="card-value">{{ formatCurrency(todayIncome) }}</span>
         </div>
       </div>
       <div class="summary-card expenses">
         <div class="card-icon">💸</div>
         <div class="card-content">
-          <span class="card-label">Egresos</span>
-          <span class="card-value">{{ formatCurrency(totalExpenses) }}</span>
+          <span class="card-label">Egresos Hoy</span>
+          <span class="card-value">{{ formatCurrency(todayExpenses) }}</span>
         </div>
       </div>
       <div class="summary-card balance">
         <div class="card-icon">🏦</div>
         <div class="card-content">
-          <span class="card-label">Balance</span>
-          <span class="card-value">{{ formatCurrency(totalBalance) }}</span>
+          <span class="card-label">Balance Hoy</span>
+          <span class="card-value">{{ formatCurrency(todayBalance) }}</span>
         </div>
       </div>
     </div>
@@ -212,8 +226,13 @@ export default {
     const filterType = ref('');
     const currentPage = ref(1);
     const itemsPerPage = 10;
+    const startDate = ref('');
+    const endDate = ref('');
     let map = null;
     let marker = null;
+    
+    // Configuración zona horaria Colombia (UTC-5)
+    const colombiaOffset = -5 * 60 * 60 * 1000;
     
     // Cargar movimientos desde Firestore
     const loadMovimientos = async () => {
@@ -227,6 +246,28 @@ export default {
       } catch (error) {
         console.error('Error al cargar movimientos:', error);
       }
+    };
+    
+    // Obtener fecha actual en hora Colombia
+    const getCurrentDateInColombia = () => {
+      const now = new Date();
+      return new Date(now.getTime() + colombiaOffset);
+    };
+    
+    // Función corregida para parsear fechas en formato DD/MM/AAAA
+    const parseCustomDate = (dateString) => {
+      if (!dateString) return null;
+      const [day, month, year] = dateString.split('/');
+      return new Date(`${year}-${month}-${day}T00:00:00`);
+    };
+    
+    // Obtener fecha actual en formato DD/MM/AAAA para comparar con la base de datos
+    const getCurrentDateString = () => {
+      const now = getCurrentDateInColombia();
+      const day = now.getDate().toString().padStart(2, '0');
+      const month = (now.getMonth() + 1).toString().padStart(2, '0');
+      const year = now.getFullYear();
+      return `${day}/${month}/${year}`;
     };
     
     // Filtros y búsqueda
@@ -249,12 +290,51 @@ export default {
         );
       }
       
+      // Filtrar por rango de fechas
+      if (startDate.value || endDate.value) {
+        filtered = filtered.filter(m => {
+          const movementDate = parseCustomDate(m.Fecha);
+          const fromDate = startDate.value ? new Date(startDate.value) : null;
+          const toDate = endDate.value ? new Date(endDate.value) : null;
+          
+          // Ajustar la fecha final para incluir todo el día
+          if (toDate) {
+            toDate.setHours(23, 59, 59, 999);
+          }
+          
+          // Verificar si la fecha del movimiento está dentro del rango
+          const isAfterStart = !fromDate || movementDate >= fromDate;
+          const isBeforeEnd = !toDate || movementDate <= toDate;
+          
+          return isAfterStart && isBeforeEnd;
+        });
+      }
+      
       // Paginación
       const start = (currentPage.value - 1) * itemsPerPage;
       return filtered.slice(start, start + itemsPerPage);
     });
+
+    // Totales del día actual (hora Colombia)
+    const todayIncome = computed(() => {
+      const todayString = getCurrentDateString();
+      
+      return movimientos.value
+        .filter(m => m.Fecha === todayString && m.Monto > 0)
+        .reduce((sum, m) => sum + (m.Monto || 0), 0);
+    });
+
+    const todayExpenses = computed(() => {
+      const todayString = getCurrentDateString();
+      
+      return movimientos.value
+        .filter(m => m.Fecha === todayString && m.Monto < 0)
+        .reduce((sum, m) => sum + (m.Monto || 0), 0);
+    });
+
+    const todayBalance = computed(() => todayIncome.value + todayExpenses.value);
     
-    // Totales calculados
+    // Totales generales
     const totalIncome = computed(() => {
       return movimientos.value
         .filter(m => m.Monto > 0)
@@ -269,24 +349,74 @@ export default {
     
     const totalBalance = computed(() => totalIncome.value + totalExpenses.value);
     
+    // Cálculo de páginas totales
     const totalPages = computed(() => {
-      const filteredLength = movimientos.value.filter(m => 
-        (!filterType.value || m.TipoMovimiento === filterType.value) &&
-        (!searchQuery.value || 
-          m.NombreCliente?.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
-          m.TipoMovimiento?.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
-          m.MetodoPago?.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
-          m.id?.toLowerCase().includes(searchQuery.value.toLowerCase()))
-      ).length;
-      return Math.ceil(filteredLength / itemsPerPage);
+      let filtered = movimientos.value;
+      
+      if (filterType.value) {
+        filtered = filtered.filter(m => m.TipoMovimiento === filterType.value);
+      }
+      
+      if (searchQuery.value) {
+        const query = searchQuery.value.toLowerCase();
+        filtered = filtered.filter(m => 
+          (m.NombreCliente?.toLowerCase().includes(query)) ||
+          (m.TipoMovimiento?.toLowerCase().includes(query)) ||
+          (m.MetodoPago?.toLowerCase().includes(query)) ||
+          (m.id?.toLowerCase().includes(query))
+        );
+      }
+      
+      if (startDate.value || endDate.value) {
+        filtered = filtered.filter(m => {
+          const movementDate = parseCustomDate(m.Fecha);
+          const fromDate = startDate.value ? new Date(startDate.value) : null;
+          const toDate = endDate.value ? new Date(endDate.value) : null;
+          
+          if (toDate) {
+            toDate.setHours(23, 59, 59, 999);
+          }
+          
+          const isAfterStart = !fromDate || movementDate >= fromDate;
+          const isBeforeEnd = !toDate || movementDate <= toDate;
+          
+          return isAfterStart && isBeforeEnd;
+        });
+      }
+      
+      return Math.ceil(filtered.length / itemsPerPage);
     });
     
     // Formateadores
     const formatDate = (dateString) => {
       if (!dateString) return 'N/A';
+      
+      // Si es formato DD/MM/AAAA, convertirlo a objeto Date
+      if (dateString.includes('/')) {
+        const date = parseCustomDate(dateString);
+        return date instanceof Date && !isNaN(date) 
+          ? date.toLocaleDateString('es-ES', { 
+              day: '2-digit', 
+              month: '2-digit', 
+              year: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit',
+              timeZone: 'America/Bogota'
+            }) 
+          : dateString;
+      }
+      
+      // Si ya es un objeto Date o timestamp
       const date = new Date(dateString);
       return date instanceof Date && !isNaN(date) 
-        ? date.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }) 
+        ? date.toLocaleDateString('es-ES', { 
+            day: '2-digit', 
+            month: '2-digit', 
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            timeZone: 'America/Bogota'
+          }) 
         : dateString;
     };
     
@@ -311,14 +441,29 @@ export default {
     // Funciones de fecha
     const getDay = (dateString) => {
       if (!dateString) return '--';
+      // Si es formato DD/MM/AAAA, extraer directamente
+      if (dateString.includes('/')) {
+        const [day] = dateString.split('/');
+        return day.padStart(2, '0');
+      }
+      
       const date = new Date(dateString);
       return date instanceof Date && !isNaN(date) 
         ? date.getDate().toString().padStart(2, '0') 
         : '--';
     };
-    
+
     const getMonth = (dateString) => {
       if (!dateString) return '---';
+      
+      // Si es formato DD/MM/AAAA, extraer directamente
+      if (dateString.includes('/')) {
+        const [, month] = dateString.split('/');
+        const monthIndex = parseInt(month, 10) - 1;
+        const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+        return months[monthIndex] || '---';
+      }
+      
       const date = new Date(dateString);
       if (!(date instanceof Date) || isNaN(date)) return '---';
       const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
@@ -580,9 +725,23 @@ export default {
       }
     };
     
+    // Limpiar filtros
+    const clearFilters = () => {
+      searchQuery.value = '';
+      filterType.value = '';
+      startDate.value = '';
+      endDate.value = '';
+      currentPage.value = 1;
+    };
+    
     // Cargar datos al montar el componente
     onMounted(() => {
       loadMovimientos();
+      
+      // Actualizar cada hora para detectar cambios de día
+      setInterval(() => {
+        loadMovimientos();
+      }, 3600000); // 1 hora
     });
     
     return {
@@ -599,6 +758,11 @@ export default {
       totalIncome,
       totalExpenses,
       totalBalance,
+      todayIncome,
+      todayExpenses,
+      todayBalance,
+      startDate,
+      endDate,
       formatDate,
       formatCurrency,
       formatCoordinates,
@@ -611,10 +775,12 @@ export default {
       closeModal,
       closeDetailsModal,
       nextPage,
-      prevPage
+      prevPage,
+      clearFilters
     };
   }
 }
+
 </script>
 
 <style scoped>
@@ -704,6 +870,43 @@ export default {
   border-color: #3498db;
 }
 
+/*Fechas */
+.date-filter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.date-filter label {
+  font-size: 14px;
+  color: #64748b;
+}
+
+.date-input {
+  padding: 8px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.date-input:focus {
+  outline: none;
+  border-color: #3498db;
+  box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+}
+
+/* Ajustes responsivos */
+@media (max-width: 768px) {
+  .date-filter {
+    width: 100%;
+  }
+  
+  .date-input {
+    flex-grow: 1;
+  }
+}
+
 /* Tarjetas de resumen */
 .summary-cards {
   display: grid;
@@ -778,58 +981,23 @@ export default {
 .balance .card-value {
   color: #3498db;
 }
-
-/* Tabla de movimientos */
 .table-container {
-  background-color: white;
-  border-radius: 12px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
-  overflow: hidden;
-  margin-bottom: 24px;
-  border: 1px solid #e2e8f0;
+  width: 100%;
+  overflow-x: auto;
 }
 
 .movimientos-table {
   width: 100%;
-  border-collapse: separate;
-  border-spacing: 0;
+  border-collapse: collapse;
+  min-width: 800px; /* Evita que se comprima demasiado */
 }
 
-.movimientos-table th {
-  background-color: #f1f5f9;
-  color: #64748b;
-  font-weight: 600;
-  text-transform: uppercase;
-  font-size: 12px;
-  letter-spacing: 0.5px;
-  padding: 16px 12px;
+.movimientos-table th, .movimientos-table td {
+  padding: 10px;
   text-align: left;
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  border-bottom: 1px solid #e2e8f0;
+  white-space: nowrap;
 }
 
-.movimientos-table td {
-  padding: 16px 12px;
-  border-bottom: 1px solid #f1f5f9;
-  vertical-align: middle;
-}
-
-.even-row {
-  background-color: white;
-}
-
-.odd-row {
-  background-color: #f8fafc;
-}
-
-.no-results {
-  text-align: center;
-  padding: 24px;
-  color: #64748b;
-  font-style: italic;
-}
 
 /* Celdas personalizadas */
 .date-cell {

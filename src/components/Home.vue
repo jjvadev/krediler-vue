@@ -71,6 +71,22 @@
         </div>
       </div>
     </div>
+
+    <!-- Tarjeta para Abonos de Hoy -->
+    <div class="col-12 col-md-6 col-lg-3">
+      <div class="card shadow-lg border-0 h-100">
+        <div class="card-body text-center">
+          <div class="icon-container bg-info text-white rounded-circle mb-3">
+            <i class="fas fa-calendar-day fa-2x"></i>
+          </div>
+          <h5 class="card-title text-info">Abonos de Hoy</h5>
+          <p class="card-text display-6 fw-bold text-dark">{{ formatCurrency(todayAbonos) }}</p>
+          <router-link to="/abonos" class="btn btn-info w-100">
+            Ver Abonos
+          </router-link>
+        </div>
+      </div>
+    </div>
     
     <!-- Sección de Movimientos Recientes -->
     <div class="row mt-4">

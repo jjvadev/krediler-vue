@@ -54,6 +54,12 @@ const routes = [
     meta: { requiresAuth: true, title: 'Préstamos' }
   },
   {
+    path: '/abonos',
+    name: 'Abonos',
+    component: () => import('@/components/Abonos.vue'),
+    meta: { requiresAuth: true, title: 'Abonos' }
+  },
+  {
     path: '/rutas',
     name: 'Rutas',
     component: () => import('@/components/Rutas.vue'),
