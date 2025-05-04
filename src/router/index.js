@@ -15,13 +15,37 @@ const routes = [
     path: '/login',
     name: 'Login',
     component: Login,
-    meta: { requiresAuth: false, title: 'Iniciar sesión' }
+    meta: { 
+      requiresAuth: false, 
+      layout: 'empty',  // Usará EmptyLayout
+      title: 'Iniciar sesión' 
+    }
   },
   {
     path: '/clientes',
     name: 'Clientes',
     component: () => import('@/components/Clientes.vue'),
     meta: { requiresAuth: true, title: 'Clientes' }
+  },
+  {
+    path: '/clientes/nuevo',
+    name: 'NuevoCliente',
+    component: () => import('@/components/NuevoCliente.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/clientes/ver/:id',
+    name: 'VerCliente',
+    component: () => import('@/components/VerCliente.vue'),
+    meta: { requiresAuth: true },
+    props: true
+  },
+  {
+    path: '/clientes/editar/:id',
+    name: 'EditarCliente',
+    component: () => import('@/components/EditarCliente.vue'),
+    meta: { requiresAuth: true },
+    props: true
   },
   {
     path: '/prestamos',

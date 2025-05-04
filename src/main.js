@@ -7,6 +7,8 @@ import { auth } from './firebase';
 import 'bootstrap/dist/js/bootstrap.bundle.min.js';
 import 'bootstrap/dist/css/bootstrap.css';
 import 'leaflet/dist/leaflet.css';
+import Toast, { POSITION } from 'vue-toastification'
+import 'vue-toastification/dist/index.css'
 import { SpeedInsights } from "@vercel/speed-insights/vue"
 import { library } from '@fortawesome/fontawesome-svg-core';
 import { fas } from '@fortawesome/free-solid-svg-icons';
@@ -29,6 +31,8 @@ app.use(Vue3GoogleMap, {
 app.use(store);
 app.use(router);
 
+
+
 // Registra el componente FontAwesomeIcon
 app.component('font-awesome-icon', FontAwesomeIcon);
 
@@ -40,6 +44,22 @@ auth.onAuthStateChanged(user => {
     store.dispatch('logout');
   }
 });
+
+// Configuración de toast para Vue 3
+app.use(Toast, {
+  position: POSITION.TOP_RIGHT,
+  timeout: 3000,
+  closeOnClick: true,
+  pauseOnFocusLoss: true,
+  pauseOnHover: true,
+  draggable: true,
+  draggablePercent: 0.6,
+  showCloseButtonOnHover: false,
+  hideProgressBar: false,
+  closeButton: 'button',
+  icon: true,
+  rtl: false
+})
 
 // Monta la aplicación
 app.mount('#app');

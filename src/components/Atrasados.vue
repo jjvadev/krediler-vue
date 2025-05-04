@@ -111,7 +111,7 @@
           <!-- Botón para ver detalles completos -->
           <div class="text-center">
             <router-link to="/prestamos-atrasados" class="btn btn-outline-danger">
-              Ver informe completo
+              Inicio
             </router-link>
           </div>
         </div>
