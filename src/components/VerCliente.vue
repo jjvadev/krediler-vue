@@ -39,6 +39,14 @@
             <span class="detalle-label">Trabajo:</span>
             <span class="detalle-valor">{{ cliente.Trabajo }}</span>
           </div>
+          <div class="detalle-item" v-if="cliente.ReferenciasFamiliares1">
+            <span class="detalle-label">Referencia Familiar 1:</span>
+            <span class="detalle-valor">{{ cliente.ReferenciasFamiliares1 }}</span>
+          </div>
+          <div class="detalle-item" v-if="cliente.ReferenciasFamiliares2">
+            <span class="detalle-label">Referencia Familiar 2:</span>
+            <span class="detalle-valor">{{ cliente.ReferenciasFamiliares2 }}</span>
+          </div>
         </div>
   
         <!-- Información del Fiador -->
@@ -59,19 +67,6 @@
           <div class="detalle-item">
             <span class="detalle-label">Trabajo:</span>
             <span class="detalle-valor">{{ cliente.TrabajoFiador }}</span>
-          </div>
-        </div>
-  
-        <!-- Referencias -->
-        <div class="seccion">
-          <h3>Referencias</h3>
-          <div class="detalle-item" v-if="cliente.ReferenciasFamiliares1">
-            <span class="detalle-label">Referencia Familiar 1:</span>
-            <span class="detalle-valor">{{ cliente.ReferenciasFamiliares1 }}</span>
-          </div>
-          <div class="detalle-item" v-if="cliente.ReferenciasFamiliares2">
-            <span class="detalle-label">Referencia Familiar 2:</span>
-            <span class="detalle-valor">{{ cliente.ReferenciasFamiliares2 }}</span>
           </div>
           <div class="detalle-item" v-if="cliente.ReferenciasFiador1">
             <span class="detalle-label">Referencia Fiador 1:</span>
